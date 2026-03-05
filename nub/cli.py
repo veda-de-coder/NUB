@@ -22,9 +22,53 @@ from nub.refs     import (current_branch, resolve_head, write_ref,
 from nub.rollback import (rollback_by_steps, rollback_to_hash,
                           _resolve_partial_hash)
 from nub.utils    import short_hash, get_all_worlds, register_world, clean_universe
-from nub.info     import print_info
 from nub.peek     import run_peek
 from nub.graph    import show_tui_graph
+
+# ── NUB ASCII ART ─────────────────────────────────────────────────────────────
+NUB_ASCII = r"""
+...     ...                            ...     ..      
+  .=*8888n.."%888:     x8h.     x8.      .=*8888x <"?88h.   
+ X    ?8888f '8888   :88888> .x8888x.   X>  '8888H> '8888   
+ 88x. '8888X  8888>   `8888   `8888f   '88h. `8888   8888   
+'8888k 8888X  '"*8h.   8888    8888'   '8888 '8888    "88>  
+ "8888 X888X .xH8      8888    8888     `888 '8888.xH888x.  
+   `8" X888!:888X      8888    8888       X" :88*~  `*8888> 
+  =~`  X888 X888X      8888    8888     ~"   !"`      "888> 
+   :h. X8*` !888X      8888    8888      .H8888h.      ?88  
+  X888xX"   '8888..: -n88888x>"88888x-  :"^"88888h.    '!   
+:~`888f     '*888*"    `%888"  4888!`   ^    "88888hx.+"    
+    ""        `"`        `"      ""            ^"**""       
+"""
+
+def _get_help_header():
+    return f"{NUB_ASCII}\n{bold(magenta('NUB — The Personal Version Vault'))}\n"
+
+def _get_help_footer():
+    footer = [f"\n  {bold('NUB System Status & Support')}"]
+    footer.append("  " + "=" * 45)
+    
+    try:
+        root = find_vcs_root()
+        vd = vcs_dir(root)
+        footer.append(f"  Project Root : {cyan(str(root))}")
+        try:
+            name, email, key = get_identity(vd)
+            footer.append(f"  Current User : {bold(name)} <{email}>")
+            footer.append(f"  User Hash Key: {magenta(key)}")
+        except RuntimeError:
+            footer.append(f"  Current User : {yellow('(not authenticated)')}")
+    except RuntimeError:
+        footer.append(f"  System Status: {yellow('Standing outside a repository')}")
+    
+    footer.append(f"\n  {bold('Source & Support:')}")
+    footer.append(f"  NUB is open source. You can inspect the logic directly:")
+    footer.append(f"  - On GitHub: {cyan('https://github.com/veda-de-coder/NUB')}")
+    footer.append(f"  - Locally  : Use {bold('nub peek <file>')} (e.g., {dim('nub/cli.py')})")
+    
+    footer.append(f"\n  {bold('Feedback & Issues:')}")
+    footer.append(f"  Reach out at: {bold(cyan('vedanarasimhan08@gmail.com'))}\n")
+    return "\n".join(footer)
 
 # ── colour helpers ────────────────────────────────────────────────────────────
 _USE_COLOR = sys.stdout.isatty()
@@ -396,9 +440,6 @@ def cmd_jump(args):
 def cmd_peek(args):
     run_peek(args, SYM_ERR, SYM_WARN, red, yellow, blue, _draw_frame)
 
-def cmd_info(args):
-    print_info(bold, cyan, magenta, yellow)
-
 def cmd_fork(args):
     import shutil
     root = _require_root()
@@ -453,8 +494,6 @@ def cmd_shift(args):
 
 # ── help table ────────────────────────────────────────────────────────────────
 _HELP_TABLE = f"""
-{bold(magenta("NUB — The Personal Version Vault"))}
-
 {cyan("What is NUB?")}
   NUB is a lightweight, local-first version control system designed to keep 
   your project history safe without the complexity of traditional tools. 
@@ -484,7 +523,6 @@ _HELP_TABLE = f"""
   show         | {yellow("git show")}            | {dim("commit.py")}   | Inspect a specific snap.
   now          | {yellow("git status")}          | {dim("refs.py")}     | Check flow and status.
   shift        | {yellow("git diff")}            | {dim("cli.py")}      | See changes since snap.
-  info         | {yellow("(about)")}             | {dim("info.py")}     | Show branding & status.
 
   {bold("Time Travel & Flows")}
   flow         | {yellow("git branch/switch")}   | {dim("refs.py")}     | Manage work branches.
@@ -513,10 +551,11 @@ class CustomParser(argparse.ArgumentParser):
         sys.exit(2)
 
     def print_help(self, file=None):
-        # If we are the top-level 'nub' parser, show the Vocabulary Guide.
-        # Otherwise (subcommands), show the standard argparse help.
+        # If we are the top-level 'nub' parser, show the expanded help guide.
         if self.prog == "nub":
+            print(_get_help_header())
             print(_HELP_TABLE)
+            print(_get_help_footer())
         else:
             super().print_help(file)
 
@@ -589,11 +628,6 @@ def build_parser():
         help="Teleport to a known repository")
     p_jmp.add_argument("query", help="Project name or partial path to search for")
 
-    sub.add_parser("info", 
-        description="Display detailed information about the NUB system and the current repository. This includes the NUB ASCII logo, support contact info, and links to the source code for full transparency. It is the best place to start for new users.",
-        epilog="Example: nub info",
-        help="Display NUB info and system status")
-
     sub.add_parser("graph", 
         description="Open an interactive TUI to view the commit graph. It shows nodes and lines representing how snapshots are connected across flows. If the interactive mode is unavailable, it falls back to a clean ASCII representation.",
         epilog="Example: nub graph",
@@ -660,7 +694,7 @@ COMMANDS = {
     "show": cmd_show, "flow": cmd_flow, "back": cmd_back,
     "place": cmd_place, "map": cmd_map, "blind": cmd_blind, "sight": cmd_sight,
     "universe": cmd_universe, "peek": cmd_peek, "shift": cmd_shift,
-    "info": cmd_info, "fork": cmd_fork, "graph": cmd_graph,
+    "fork": cmd_fork, "graph": cmd_graph,
     "jump": cmd_jump,
 }
 
