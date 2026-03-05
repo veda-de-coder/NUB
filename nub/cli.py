@@ -455,6 +455,32 @@ def cmd_graph(args):
     history = get_graph_nodes(vd, od)
     total_snaps = len(history)
 
+    # Gemini-style aesthetic constants
+    BOX_TL = "╭"
+    BOX_TR = "╮"
+    BOX_BL = "╰"
+    BOX_BR = "╯"
+    BOX_H  = "─"
+    BOX_V  = "│"
+
+    def draw_rounded_box(stdscr, y, x, h, w, color=0):
+        """Draws a modern rounded box."""
+        try:
+            # Corners
+            stdscr.addch(y, x, BOX_TL, color)
+            stdscr.addch(y, x + w - 1, BOX_TR, color)
+            stdscr.addch(y + h - 1, x, BOX_BL, color)
+            stdscr.addch(y + h - 1, x + w - 1, BOX_BR, color)
+            
+            # Edges
+            stdscr.addstr(y, x + 1, BOX_H * (w - 2), color)
+            stdscr.addstr(y + h - 1, x + 1, BOX_H * (w - 2), color)
+            for i in range(1, h - 1):
+                stdscr.addch(y + i, x, BOX_V, color)
+                stdscr.addch(y + i, x + w - 1, BOX_V, color)
+        except curses.error:
+            pass
+
     def _tui(stdscr):
         curses.curs_set(0)
         curses.start_color()
@@ -462,36 +488,84 @@ def cmd_graph(args):
             curses.use_default_colors()
         except:
             pass
+        
+        # Palette: 1=Cyan(Gemini), 2=Magenta(Accent), 3=White(Text), 4=Dim(Meta)
         curses.init_pair(1, curses.COLOR_CYAN, -1)
         curses.init_pair(2, curses.COLOR_MAGENTA, -1)
-        
+        curses.init_pair(3, curses.COLOR_WHITE, -1)
+        curses.init_pair(4, curses.COLOR_BLUE, -1) # Dim blue for borders
+
+        selected_idx = 0
+        scroll_offset = 0
+
         while True:
             stdscr.clear()
             h_max, w_max = stdscr.getmaxyx()
             
-            # 1. Main Content Panel (Left)
-            panel_w = 12
-            main_w = w_max - panel_w - 2
-            stdscr.addstr(1, 2, f"{bold('NUB PROJECT:')} {cyan(root.name)}")
-            stdscr.addstr(2, 2, f"{bold('QUANTITY:')} {magenta(str(total_snaps))} snaps")
+            # Dimensions
+            list_h = h_max - 2
+            list_w = w_max - 4
             
-            # Draw a sample of history in the main area
-            for i, c in enumerate(history[:h_max-10]):
-                msg = c['message'][:main_w-15]
-                stdscr.addstr(i+5, 4, f"{dim(short_hash(c['hash']))} | {msg}")
-
-            # 2. Thin Right Side Panel (The Graph)
-            start_x = w_max - panel_w
-            for r in range(h_max):
-                stdscr.addch(r, start_x - 1, "│")
+            # Draw Main Container
+            draw_rounded_box(stdscr, 0, 1, h_max, w_max - 2, curses.color_pair(4))
             
-            draw_side_panel(stdscr, history, 2, start_x, panel_w, h_max - 4)
+            # Title Label
+            title = f" NUB PROJECT: {root.name.upper()} "
+            stdscr.addstr(0, 4, title, curses.color_pair(1) | curses.A_BOLD)
+            
+            # Footer Label
+            footer = f" {total_snaps} Snaps | [Q] Quit "
+            stdscr.addstr(h_max - 1, w_max - 4 - len(footer), footer, curses.color_pair(1))
 
-            stdscr.addstr(h_max-1, 0, " [ Q to Exit | Graph Panel (Right) ] ", curses.A_REVERSE)
+            # Render List
+            visible_rows = list_h - 2
+            
+            # Scroll logic
+            if selected_idx < scroll_offset:
+                scroll_offset = selected_idx
+            elif selected_idx >= scroll_offset + visible_rows:
+                scroll_offset = selected_idx - visible_rows + 1
+
+            for i in range(visible_rows):
+                idx = scroll_offset + i
+                if idx >= len(history):
+                    break
+                
+                c = history[idx]
+                row_y = 1 + i + 1
+                
+                # Selection Highlight
+                is_selected = (idx == selected_idx)
+                if is_selected:
+                    # Gemini Selection: Cyan Bar + Bold White
+                    prefix = f" {BOX_V} "
+                    style = curses.color_pair(1) | curses.A_BOLD
+                    stdscr.addstr(row_y, 2, " " * (list_w - 2), curses.A_REVERSE | curses.color_pair(4)) # highlight bg effect
+                else:
+                    prefix = "   "
+                    style = curses.color_pair(3)
+
+                # Format content
+                snap_hash = short_hash(c['hash'])
+                msg = c['message'][:list_w - 25]
+                author = c.get("author", "Unknown")[:15]
+                
+                line_content = f"{prefix}{snap_hash}  {msg:<{list_w-35}} {author}"
+                
+                try:
+                    stdscr.addstr(row_y, 2, line_content[:list_w-2], style)
+                except curses.error:
+                    pass
+
             stdscr.refresh()
             
-            if stdscr.getch() in (ord('q'), ord('Q')):
+            key = stdscr.getch()
+            if key in (ord('q'), ord('Q')):
                 break
+            elif key == curses.KEY_UP and selected_idx > 0:
+                selected_idx -= 1
+            elif key == curses.KEY_DOWN and selected_idx < len(history) - 1:
+                selected_idx += 1
 
     try:
         curses.wrapper(_tui)
