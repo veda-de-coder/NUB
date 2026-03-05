@@ -1,0 +1,7 @@
+.vcs/
+__pycache__/
+*.pyc
+test_output/
+.nub_universe
+true/
+D/
