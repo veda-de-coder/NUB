@@ -577,57 +577,121 @@ def build_parser():
     sub = p.add_subparsers(dest="command", metavar="<command>")
 
     # Add 'help' as an explicit command
-    sub.add_parser("help", help="Show this help guide")
+    sub.add_parser("help", help="Show the high-level Vocabulary Guide and logic map.")
 
-    p_start = sub.add_parser("start",     help="Start a new repository")
+    p_start = sub.add_parser("start", 
+        description="Initialize a new NUB repository in the specified directory. This creates a hidden .vcs folder to store your project history and configuration. If no path is provided, it will initialize in your current working directory.",
+        epilog="Example: nub start my_project",
+        help="Start a new repository")
     p_start.add_argument("path", nargs="?", help="Directory to start (default: cwd)")
+    
     pi = sub.add_parser("init", help=argparse.SUPPRESS)
     pi.add_argument("path", nargs="?", help="Directory to start (default: cwd)")
 
-    p_auth = sub.add_parser("auth", help="Authenticate user identity")
+    p_auth = sub.add_parser("auth", 
+        description="Set or view your project identity. Providing both --name and --email will lock your identity and generate a unique Hash Key for signing snapshots. If run without arguments, it displays your current local identity.",
+        epilog="Example: nub auth --name \"Alice\" --email alice@example.com",
+        help="Authenticate user identity")
     p_auth.add_argument("--name",  help="Your full name")
     p_auth.add_argument("--email", help="Your email address")
 
-    p_unauth = sub.add_parser("unauth", help="Clear identity")
+    p_unauth = sub.add_parser("unauth", 
+        description="Safely remove your identity from the current NUB repository. To prevent accidental logout, you must provide your unique Hash Key as confirmation. Once cleared, you will need to re-authenticate before taking new snapshots.",
+        epilog="Example: nub unauth --key A1B2C3D4",
+        help="Clear identity")
     p_unauth.add_argument("--key", help="Required: Your Hash Key to confirm")
 
-    p_snap = sub.add_parser("snap",  help="Take a snapshot of the project")
+    p_snap = sub.add_parser("snap", 
+        description="Take a permanent snapshot of all tracked files in your project. This captures the exact state of your work and links it to the current flow. A mandatory message must be provided to describe the changes in this snap.",
+        epilog="Example: nub snap -m \"Fix navigation bug\"",
+        help="Take a snapshot of the project")
     p_snap.add_argument("-m", "--message", required=True, help="Snapshot message")
 
-    sub.add_parser("past",           help="Show project history")
-    sub.add_parser("now",            help="Show current status")
-    sub.add_parser("place",          help="Show current directory")
-    sub.add_parser("map",            help="Show project file layout")
-    sub.add_parser("universe",       help="Show all known repositories")
-    sub.add_parser("info",           help="Display NUB info and system status")
-    sub.add_parser("graph",          help="Show visual commit graph")
+    sub.add_parser("past", 
+        description="Display the chronological history of snapshots for the current flow. Each entry shows the snap hash, the author, the timestamp, and the commit message. It is the primary way to track the evolution of your project.",
+        epilog="Example: nub past",
+        help="Show project history")
+    
+    sub.add_parser("now", 
+        description="Show your current position within the repository. This includes the name of the active flow, the hash of the latest snapshot, and your current authentication status. It provides a quick summary of 'where you are' right now.",
+        epilog="Example: nub now",
+        help="Show current status")
+    
+    sub.add_parser("place", 
+        description="Display the absolute path of the directory you are currently standing in. It also identifies the root of the NUB repository if you are inside one. Useful for orienting yourself in deep directory structures.",
+        epilog="Example: nub place",
+        help="Show current directory")
+    
+    sub.add_parser("map", 
+        description="Render a visual tree representation of all files and folders in the project. It respects the 'blind' list and skips the internal .vcs directory. This helps you understand the physical layout of your versioned files.",
+        epilog="Example: nub map",
+        help="Show project file layout")
+    
+    sub.add_parser("universe", 
+        description="List every NUB repository known to this machine. It scans the global registry to show the paths, active users, and hash keys of all your projects. This is the 'Captain's Log' for all your NUB-managed work.",
+        epilog="Example: nub universe",
+        help="Show all known repositories")
 
-    pf = sub.add_parser("fork",      help="Fork this repository to a new path")
+    sub.add_parser("info", 
+        description="Display detailed information about the NUB system and the current repository. This includes the NUB ASCII logo, support contact info, and links to the source code for full transparency. It is the best place to start for new users.",
+        epilog="Example: nub info",
+        help="Display NUB info and system status")
+
+    sub.add_parser("graph", 
+        description="Open an interactive TUI to view the commit graph. It shows nodes and lines representing how snapshots are connected across flows. If the interactive mode is unavailable, it falls back to a clean ASCII representation.",
+        epilog="Example: nub graph",
+        help="Show visual commit graph")
+
+    pf = sub.add_parser("fork", 
+        description="Create a complete, independent copy of the current repository at a new location. This clones all files and the entire .vcs history into the destination path. The new directory is immediately registered as its own NUB world.",
+        epilog="Example: nub fork ../my_project_v2",
+        help="Fork this repository to a new path")
     pf.add_argument("target", help="Destination path for the fork")
 
-    pb = sub.add_parser("blind",      help="Ignore files")
+    pb = sub.add_parser("blind", 
+        description="Manage the 'blind' list to hide specific files or folders from NUB's sight. Adding a path here prevents it from being tracked in future snapshots. You can also clear the entire blind list to start fresh.",
+        epilog="Example: nub blind --add logs/",
+        help="Ignore files")
     pb.add_argument("--add",   help="Add a file/folder to the blind list")
     pb.add_argument("--clear", action="store_true", help="Clear the blind list")
 
-    psgt = sub.add_parser("sight",     help="Unignore files")
+    psgt = sub.add_parser("sight", 
+        description="Restore visibility to a file or folder that was previously blinded. This removes the target from the .nubblind file, allowing NUB to track it in subsequent snapshots. It is the inverse of the 'blind' command.",
+        epilog="Example: nub sight data.log",
+        help="Unignore files")
     psgt.add_argument("target", help="The file or folder to re-track")
 
-    p_pk = sub.add_parser("peek",      help="Read a file")
+    p_pk = sub.add_parser("peek", 
+        description="Quickly read and display the contents of a file directly in the terminal. It wraps the content in a clean frame for better readability. Unlike traditional tools, it can peek at NUB source files even if you aren't in a repo.",
+        epilog="Example: nub peek nub/cli.py",
+        help="Read a file")
     p_pk.add_argument("file",  help="The file to read")
 
-    p_sh = sub.add_parser("shift",     help="See changes")
+    p_sh = sub.add_parser("shift", 
+        description="Compare the current state of a file on disk against its version in the latest snapshot. It displays a 'Past' vs 'Now' view to show exactly what has shifted. Useful for reviewing changes before taking a new snap.",
+        epilog="Example: nub shift main.py",
+        help="See changes")
     p_sh.add_argument("file",  help="The file to compare")
 
-    ps = sub.add_parser("show",      help="Inspect a specific snapshot")
+    ps = sub.add_parser("show", 
+        description="Inspect the full details of a specific snapshot. If no hash is provided, it defaults to the latest snap in the current flow. It lists the author, date, message, and every file captured in that snapshot.",
+        epilog="Example: nub show a1b2c3d",
+        help="Inspect a specific snapshot")
     ps.add_argument("snap_hash", nargs="?", help="Snapshot hash (default: latest)")
 
-    p_flow = sub.add_parser("flow",      help="Manage work flows")
+    p_flow = sub.add_parser("flow", 
+        description="Manage your project's work flows (branches). You can list all flows, create new ones, switch between them, or delete old ones. Switching flows will update your working directory to match that flow's latest snap.",
+        epilog="Example: nub flow switch experimental",
+        help="Manage work flows")
     p_flow.add_argument("subcommand", nargs="?",
                     choices=["list","create","switch","delete"],
                     help="list | create | switch | delete")
     p_flow.add_argument("name", nargs="?", help="Flow name")
 
-    pr = sub.add_parser("back",      help="Go back to a previous snapshot")
+    pr = sub.add_parser("back", 
+        description="Travel back in time to a previous snapshot state. You can specify a number of steps to jump back or provide a specific snap hash. This updates both the branch pointer and your physical files on disk.",
+        epilog="Example: nub back --steps 2",
+        help="Go back to a previous snapshot")
     pr.add_argument("--steps", type=int, metavar="N", help="Go back N snaps")
     pr.add_argument("--hash",  metavar="HASH",        help="Go back to a specific snap hash")
 
