@@ -13,6 +13,7 @@ def cyan(t):   return _c("36", t)
 def red(t):    return _c("31", t)
 def blue(t):   return _c("34", t)
 def magenta(t): return _c("35", t)
+def white(t):   return _c("37", t)
 def bold(t):   return _c("1",  t)
 def dim(t):    return _c("2",  t)
 
