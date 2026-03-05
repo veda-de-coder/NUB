@@ -448,33 +448,35 @@ _HELP_TABLE = f"""
   3. {bold("nub snap -m")} - Save your current progress forever.
   4. {bold("nub past")}    - Look at the timeline of your project.
 
-{cyan("Command Reference & Logic Map:")}
+{cyan("Command Reference & Git Translation:")}
 
   {bold("Setup & Identity")}
-  start/init   | {dim("init.py")}     | Begin a new project history.
-  auth         | {dim("config.py")}   | Sign in with your name and email.
-  unauth       | {dim("config.py")}   | Sign out and clear local identity.
-  universe     | {dim("utils.py")}    | List all NUB projects on this machine.
+  NUB Command  | Git Equivalent      | Logic File   | Explanation
+  -------------|---------------------|--------------|---------------------------
+  start/init   | {yellow("git init")}            | {dim("init.py")}     | Begin project history.
+  auth         | {yellow("git config")}          | {dim("config.py")}   | Set your name & email.
+  unauth       | {yellow("(logout)")}            | {dim("config.py")}   | Clear local identity.
+  universe     | {yellow("(registry)")}          | {dim("utils.py")}    | List all NUB projects.
 
   {bold("Snapshots & History")}
-  snap         | {dim("commit.py")}   | Save everything exactly as it is now.
-  past         | {dim("commit.py")}   | View the chronological list of snaps.
-  show         | {dim("commit.py")}   | Inspect the contents of a specific snap.
-  now          | {dim("refs.py")}     | Check your current flow and latest snap.
-  shift        | {dim("cli.py")}      | See what changed since the last snap.
-  info         | {dim("cli.py")}      | Show NUB identity, status, and ASCII art.
+  snap         | {yellow("git commit -am")}      | {dim("commit.py")}   | Save everything now.
+  past         | {yellow("git log")}             | {dim("commit.py")}   | View timeline of snaps.
+  show         | {yellow("git show")}            | {dim("commit.py")}   | Inspect a specific snap.
+  now          | {yellow("git status")}          | {dim("refs.py")}     | Check flow and status.
+  shift        | {yellow("git diff")}            | {dim("cli.py")}      | See changes since snap.
+  info         | {yellow("(about)")}             | {dim("info.py")}     | Show branding & status.
 
   {bold("Time Travel & Flows")}
-  flow         | {dim("refs.py")}     | Create, switch, or delete work branches.
-  back         | {dim("rollback.py")} | Revert your project to a previous state.
-  graph        | {dim("graph.py")}    | View visual node-based history.
-  fork         | {dim("cli.py")}      | Clone this project to a new location.
+  flow         | {yellow("git branch/switch")}   | {dim("refs.py")}     | Manage work branches.
+  back         | {yellow("git reset --hard")}    | {dim("rollback.py")} | Revert to a past state.
+  graph        | {yellow("git log --graph")}     | {dim("graph.py")}    | Visual node history.
+  fork         | {yellow("git clone (local)")}   | {dim("cli.py")}      | Clone project locally.
 
   {bold("Exploration & Visibility")}
-  map          | {dim("tree.py")}     | See the structure of your project.
-  blind/sight  | {dim("tree.py")}     | Hide or reveal files from NUB's sight.
-  peek         | {dim("cli.py")}      | Quickly read a file's content.
-  place        | {dim("cli.py")}      | Show where you are in the universe.
+  map          | {yellow("tree / ls -R")}        | {dim("tree.py")}     | See project structure.
+  blind/sight  | {yellow(".gitignore")}          | {dim("tree.py")}     | Hide or reveal files.
+  peek         | {yellow("cat / type")}          | {dim("peek.py")}     | Read a file's content.
+  place        | {yellow("pwd")}                 | {dim("cli.py")}      | Show current location.
 
 {dim("Use 'nub <command> -h' for more specific details on any command.")}
 """
