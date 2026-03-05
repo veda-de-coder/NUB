@@ -390,7 +390,8 @@ def cmd_jump(args):
     print(dim("=" * 60))
     for m in matches:
         print(f"{green(SYM_GO)} {cyan(m)}")
-        print(f"   Command: {bold(f'cd \"{m}\"')}\n")
+        cmd_text = f'cd "{m}"'
+        print(f"   Command: {bold(cmd_text)}\n")
 
 def cmd_peek(args):
     run_peek(args, SYM_ERR, SYM_WARN, red, yellow, blue, _draw_frame)
