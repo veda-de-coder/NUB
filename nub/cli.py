@@ -23,7 +23,7 @@ from nub.refs     import (current_branch, resolve_head, write_ref,
 from nub.rollback import (rollback_by_steps, rollback_to_hash,
                           _resolve_partial_hash)
 from nub.utils    import short_hash, get_all_worlds, register_world
-from nub.graph    import get_graph_nodes, draw_side_panel, print_ascii_graph
+from nub.graph    import get_graph_nodes, print_ascii_graph
 
 # ── NUB ASCII ART ─────────────────────────────────────────────────────────────
 NUB_ASCII = r"""
