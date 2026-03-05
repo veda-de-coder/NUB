@@ -8,6 +8,22 @@ NUB is a lightweight, local-first version control system designed for simplicity
 - **Clean Concepts:** No staging area (index) — if it's in the folder, it's in the snap (unless blinded).
 - **Time Travel:** Move back and forth in time using "flows" and "back" commands.
 
+## Installation
+
+To install NUB and make the `nub` command available globally:
+
+1. **Clone the repository:**
+   ```bash
+   git clone https://github.com/veda-de-coder/NUB.git
+   cd NUB
+   ```
+
+2. **Install via pip:**
+   ```bash
+   pip install .
+   ```
+   *Note: On Windows, this will automatically install `windows-curses` for the interactive graph.*
+
 ## Getting Started
 
 1. **Initialize a Repo:**

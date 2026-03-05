@@ -452,27 +452,49 @@ def cmd_graph(args):
     root = _require_root()
     vd, od = vcs_dir(root), objects_dir(root)
     
-    graph_data = generate_graph(vd, od)
-    
+    from .graph import get_graph_nodes
+    history = get_graph_nodes(vd, od)
+    total_snaps = len(history)
+
     def _tui(stdscr):
         curses.curs_set(0)
-        stdscr.nodelay(False)
-        stdscr.clear()
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_CYAN, -1)
+        curses.init_pair(2, curses.COLOR_MAGENTA, -1)
         
-        max_y, max_x = stdscr.getmaxyx()
-        
-        for i, line in enumerate(graph_data[:max_y-2]):
-            stdscr.addstr(i, 2, line[:max_x-4])
-        
-        stdscr.addstr(max_y-1, 0, " [ Press any key to exit graph ] ", curses.A_REVERSE)
-        stdscr.refresh()
-        stdscr.getch()
+        while True:
+            stdscr.clear()
+            h_max, w_max = stdscr.getmaxyx()
+            
+            # 1. Main Content Panel (Left)
+            panel_w = 12
+            main_w = w_max - panel_w - 2
+            stdscr.addstr(1, 2, f"{bold('NUB PROJECT:')} {cyan(root.name)}")
+            stdscr.addstr(2, 2, f"{bold('QUANTITY:')} {magenta(str(total_snaps))} snaps")
+            
+            # Draw a sample of history in the main area
+            for i, c in enumerate(history[:h_max-10]):
+                msg = c['message'][:main_w-15]
+                stdscr.addstr(i+5, 4, f"{dim(short_hash(c['hash']))} | {msg}")
+
+            # 2. Thin Right Side Panel (The Graph)
+            start_x = w_max - panel_w
+            for r in range(h_max):
+                stdscr.addch(r, start_x - 1, "│")
+            
+            from .graph import draw_side_panel
+            draw_side_panel(stdscr, history, 2, start_x, panel_w, h_max - 4)
+
+            stdscr.addstr(h_max-1, 0, " [ Q to Exit | Graph Panel (Right) ] ", curses.A_REVERSE)
+            stdscr.refresh()
+            
+            if stdscr.getch() in (ord('q'), ord('Q')):
+                break
 
     try:
         curses.wrapper(_tui)
     except Exception as e:
-        # Fallback if curses fails
-        from nub.graph import print_ascii_graph
+        from .graph import print_ascii_graph
         print_ascii_graph(vd, od)
 
 def cmd_shift(args):
