@@ -5,7 +5,6 @@ cli.py — THE entry-point. All NUB commands go through here.
 import argparse
 import os
 import sys
-import difflib
 from pathlib import Path
 
 # Bootstrap: make sure 'nub' package is importable
@@ -14,8 +13,8 @@ if str(_SCRIPT_DIR.parent) not in sys.path:
     sys.path.insert(0, str(_SCRIPT_DIR.parent))
 
 from nub.init     import init_repo, find_vcs_root, vcs_dir, objects_dir
-from nub.config   import get_identity, set_identity, show_identity, clear_identity
-from nub.tree     import snapshot, list_tree, get_blind_list, load_blob
+from nub.config   import get_identity, set_identity, clear_identity
+from nub.tree     import snapshot, load_blob
 from nub.commit   import create_commit, read_commit, commit_history
 from nub.refs     import (current_branch, resolve_head, write_ref,
                           list_branches, create_branch, delete_branch,
@@ -23,19 +22,9 @@ from nub.refs     import (current_branch, resolve_head, write_ref,
 from nub.rollback import (rollback_by_steps, rollback_to_hash,
                           _resolve_partial_hash)
 from nub.utils    import short_hash, get_all_worlds, register_world
-from nub.graph    import get_graph_nodes, print_ascii_graph
-
-# ── NUB ASCII ART ─────────────────────────────────────────────────────────────
-NUB_ASCII = r"""
- ██████   █████ █████  █████ ███████████ 
-▒▒██████ ▒▒███ ▒▒███  ▒▒███ ▒▒███▒▒▒▒▒███
- ▒███▒███ ▒███  ▒███   ▒███  ▒███    ▒███
- ▒███▒▒███▒███  ▒███   ▒███  ▒██████████ 
- ▒███ ▒▒██████  ▒███   ▒███  ▒███▒▒▒▒▒███
- ▒███  ▒▒█████  ▒███   ▒███  ▒███    ▒███
- █████  ▒▒█████ ▒▒████████   ███████████ 
-▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒▒▒
-"""
+from nub.info     import print_info
+from nub.peek     import run_peek
+from nub.graph    import show_tui_graph
 
 # ── colour helpers ────────────────────────────────────────────────────────────
 _USE_COLOR = sys.stdout.isatty()
@@ -53,7 +42,7 @@ def _get_symbol(unicode_sym, ascii_fallback):
     try:
         unicode_sym.encode(sys.stdout.encoding or 'ascii')
         return unicode_sym
-    except UnicodeEncodeError:
+    except:
         return ascii_fallback
 
 SYM_OK   = _get_symbol("✓", "[OK]")
@@ -75,9 +64,16 @@ def _draw_frame(title, lines, color_func=dim):
         print(color_func("| ") + line.rstrip()[:width-4])
     print(color_func("+" + "-" * (width - 2) + "+"))
 
-# ── commands ──────────────────────────────────────────────────────────────────
+# ── command handlers ──────────────────────────────────────────────────────────
 def cmd_start(args):
     target = Path(args.path).resolve() if args.path else Path.cwd()
+    if not target.exists():
+        try:
+            target.mkdir(parents=True, exist_ok=True)
+            print(dim(f"  Created directory: {target}"))
+        except Exception as e:
+            print(red(SYM_ERR), f"Failed to create directory: {e}"); sys.exit(1)
+    
     try:
         print(green(SYM_OK), init_repo(target))
     except FileExistsError as exc:
@@ -87,8 +83,7 @@ def cmd_auth(args):
     root = _require_root()
     vd   = vcs_dir(root)
     if args.name or args.email:
-        name  = args.name
-        email = args.email
+        name, email = args.name, args.email
         if not name or not email:
             print(red(SYM_ERR), "Provide both --name and --email for authentication."); sys.exit(1)
         user_hash = set_identity(vd, name, email)
@@ -268,6 +263,7 @@ def cmd_show(args):
     except ValueError as exc:
         print(red(SYM_ERR), exc); sys.exit(1)
     c = read_commit(od, full)
+    from .tree import list_tree
     print(bold(f"\nSnapshot  {cyan(full)}"))
     print(f"Author    {bold(c.get('author',''))}")
     print(f"Key       {magenta(c.get('key',''))}")
@@ -313,6 +309,7 @@ def cmd_map(args):
                 next_prefix = prefix + (dim("    ") if is_last else dim(SYM_V))
                 _walk(item, next_prefix)
 
+    from .tree import get_blind_list
     _walk(root)
     print()
 
@@ -339,11 +336,11 @@ def cmd_sight(args):
     root = _require_root()
     blind_file = root / ".nubblind"
     if not blind_file.exists():
-        print(yellow("NUB is already seeing everything clearly.")); return
+        print(yellow(SYM_WARN), "NUB is already seeing everything clearly."); return
     
     lines = blind_file.read_text().splitlines()
     if args.target not in lines:
-        print(yellow(f"! '{args.target}' is not in the blind list.")); return
+        print(yellow(f"{SYM_WARN} '{args.target}' is not in the blind list.")); return
     
     new_lines = [l for l in lines if l != args.target]
     if not new_lines:
@@ -378,57 +375,10 @@ def cmd_universe(args):
     print()
 
 def cmd_peek(args):
-    # Don't strictly require a root to peek at files (for transparency)
-    try:
-        root = find_vcs_root()
-        target = root / args.file
-    except RuntimeError:
-        target = Path(args.file)
-        
-    if not target.exists():
-        print(red(f"{SYM_ERR} File not found: {args.file}")); sys.exit(1)
-    
-    if target.is_dir():
-        print(yellow(f"{SYM_WARN} '{args.file}' is a directory. Listing contents:"))
-        for item in sorted(target.iterdir()):
-            print(f"  {'/' if item.is_dir() else ' '} {item.name}")
-        return
-
-    try:
-        content = target.read_text().splitlines()
-        _draw_frame(f"PEEK: {args.file}", content, blue)
-    except Exception as e:
-        print(red(f"{SYM_ERR} Could not read file: {e}")); sys.exit(1)
+    run_peek(args, SYM_ERR, SYM_WARN, red, yellow, blue, _draw_frame)
 
 def cmd_info(args):
-    # Plain, no-color output as requested
-    print(NUB_ASCII)
-
-    print(f"  {bold('NUB Version Vault')} — Beta Prototype")
-    print("  " + "=" * 45)
-    
-    try:
-        root = find_vcs_root()
-        vd = vcs_dir(root)
-        print(f"  Project Root : {root}")
-        try:
-            name, email, key = get_identity(vd)
-            print(f"  Current User : {name} <{email}>")
-            print(f"  User Hash Key: {key}")
-        except RuntimeError:
-            print(f"  Current User : (not authenticated)")
-    except RuntimeError:
-        print(f"  System Status: Standing outside a repository")
-    
-    print(f"\n  {bold('Source & Support:')}")
-    print(f"  NUB is open source. You can inspect the logic directly:")
-    print(f"  - On GitHub: https://github.com/veda-de-coder/NUB")
-    print(f"  - Locally  : Use nub peek <file> (e.g., nub/cli.py)")
-    
-    print(f"\n  {bold('Feedback & Issues:')}")
-    print(f"  Have suggestions or found a bug? Reach out at:")
-    print(f"  vedanarasimhan08@gmail.com")
-    print()
+    print_info(bold, cyan, magenta, yellow)
 
 def cmd_fork(args):
     import shutil
@@ -448,129 +398,9 @@ def cmd_fork(args):
         print(red(SYM_ERR), f"Fork failed: {e}"); sys.exit(1)
 
 def cmd_graph(args):
-    import curses
     root = _require_root()
     vd, od = vcs_dir(root), objects_dir(root)
-    
-    history = get_graph_nodes(vd, od)
-    total_snaps = len(history)
-
-    # Gemini-style aesthetic constants
-    BOX_TL = "╭"
-    BOX_TR = "╮"
-    BOX_BL = "╰"
-    BOX_BR = "╯"
-    BOX_H  = "─"
-    BOX_V  = "│"
-
-    def draw_rounded_box(stdscr, y, x, h, w, color=0):
-        """Draws a modern rounded box."""
-        try:
-            # Corners
-            stdscr.addch(y, x, BOX_TL, color)
-            stdscr.addch(y, x + w - 1, BOX_TR, color)
-            stdscr.addch(y + h - 1, x, BOX_BL, color)
-            stdscr.addch(y + h - 1, x + w - 1, BOX_BR, color)
-            
-            # Edges
-            stdscr.addstr(y, x + 1, BOX_H * (w - 2), color)
-            stdscr.addstr(y + h - 1, x + 1, BOX_H * (w - 2), color)
-            for i in range(1, h - 1):
-                stdscr.addch(y + i, x, BOX_V, color)
-                stdscr.addch(y + i, x + w - 1, BOX_V, color)
-        except curses.error:
-            pass
-
-    def _tui(stdscr):
-        curses.curs_set(0)
-        curses.start_color()
-        try:
-            curses.use_default_colors()
-        except:
-            pass
-        
-        # Palette: 1=Cyan(Gemini), 2=Magenta(Accent), 3=White(Text), 4=Dim(Meta)
-        curses.init_pair(1, curses.COLOR_CYAN, -1)
-        curses.init_pair(2, curses.COLOR_MAGENTA, -1)
-        curses.init_pair(3, curses.COLOR_WHITE, -1)
-        curses.init_pair(4, curses.COLOR_BLUE, -1) # Dim blue for borders
-
-        selected_idx = 0
-        scroll_offset = 0
-
-        while True:
-            stdscr.clear()
-            h_max, w_max = stdscr.getmaxyx()
-            
-            # Dimensions
-            list_h = h_max - 2
-            list_w = w_max - 4
-            
-            # Draw Main Container
-            draw_rounded_box(stdscr, 0, 1, h_max, w_max - 2, curses.color_pair(4))
-            
-            # Title Label
-            title = f" NUB PROJECT: {root.name.upper()} "
-            stdscr.addstr(0, 4, title, curses.color_pair(1) | curses.A_BOLD)
-            
-            # Footer Label
-            footer = f" {total_snaps} Snaps | [Q] Quit "
-            stdscr.addstr(h_max - 1, w_max - 4 - len(footer), footer, curses.color_pair(1))
-
-            # Render List
-            visible_rows = list_h - 2
-            
-            # Scroll logic
-            if selected_idx < scroll_offset:
-                scroll_offset = selected_idx
-            elif selected_idx >= scroll_offset + visible_rows:
-                scroll_offset = selected_idx - visible_rows + 1
-
-            for i in range(visible_rows):
-                idx = scroll_offset + i
-                if idx >= len(history):
-                    break
-                
-                c = history[idx]
-                row_y = 1 + i + 1
-                
-                # Selection Highlight
-                is_selected = (idx == selected_idx)
-                if is_selected:
-                    # Gemini Selection: Cyan Bar + Bold White
-                    prefix = f" {BOX_V} "
-                    style = curses.color_pair(1) | curses.A_BOLD
-                    stdscr.addstr(row_y, 2, " " * (list_w - 2), curses.A_REVERSE | curses.color_pair(4)) # highlight bg effect
-                else:
-                    prefix = "   "
-                    style = curses.color_pair(3)
-
-                # Format content
-                snap_hash = short_hash(c['hash'])
-                msg = c['message'][:list_w - 25]
-                author = c.get("author", "Unknown")[:15]
-                
-                line_content = f"{prefix}{snap_hash}  {msg:<{list_w-35}} {author}"
-                
-                try:
-                    stdscr.addstr(row_y, 2, line_content[:list_w-2], style)
-                except curses.error:
-                    pass
-
-            stdscr.refresh()
-            
-            key = stdscr.getch()
-            if key in (ord('q'), ord('Q')):
-                break
-            elif key == curses.KEY_UP and selected_idx > 0:
-                selected_idx -= 1
-            elif key == curses.KEY_DOWN and selected_idx < len(history) - 1:
-                selected_idx += 1
-
-    try:
-        curses.wrapper(_tui)
-    except Exception as e:
-        print_ascii_graph(vd, od)
+    show_tui_graph(vd, od, root.name)
 
 def cmd_shift(args):
     root = _require_root()
@@ -582,9 +412,10 @@ def cmd_shift(args):
     target_rel = Path(args.file).as_posix()
     target_abs = root / args.file
     if not target_abs.exists():
-        print(red(f"✗ File not found on disk: {args.file}")); sys.exit(1)
+        print(red(f"{SYM_ERR} File not found on disk: {args.file}")); sys.exit(1)
     
     commit = read_commit(od, head)
+    from .tree import list_tree
     tree_entries = list_tree(commit["tree"], od)
     
     old_content = []
