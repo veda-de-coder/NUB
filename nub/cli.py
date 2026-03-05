@@ -449,7 +449,7 @@ def cmd_info(args):
     # Multi-column print for core files
     for i in range(0, len(core_files), 2):
         pair = core_files[i:i+2]
-        line = "    ".join(f"{dim('->')} {cyan(f:<15)}" for f in pair)
+        line = "    ".join(f"{dim('->')} {cyan(f.ljust(15))}" for f in pair)
         print(f"  {line}")
 
     print(f"\n  {dim('Use')} {bold('nub peek <file>')} {dim('to verify any of the above.')}")
