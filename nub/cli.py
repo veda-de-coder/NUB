@@ -23,7 +23,7 @@ from nub.refs     import (current_branch, resolve_head, write_ref,
 from nub.rollback import (rollback_by_steps, rollback_to_hash,
                           _resolve_partial_hash)
 from nub.utils    import short_hash, get_all_worlds, register_world
-from nub.graph    import generate_graph
+from nub.graph    import get_graph_nodes, draw_side_panel
 
 # ── NUB ASCII ART ─────────────────────────────────────────────────────────────
 NUB_ASCII = r"""
@@ -452,7 +452,6 @@ def cmd_graph(args):
     root = _require_root()
     vd, od = vcs_dir(root), objects_dir(root)
     
-    from .graph import get_graph_nodes
     history = get_graph_nodes(vd, od)
     total_snaps = len(history)
 
@@ -482,7 +481,6 @@ def cmd_graph(args):
             for r in range(h_max):
                 stdscr.addch(r, start_x - 1, "│")
             
-            from .graph import draw_side_panel
             draw_side_panel(stdscr, history, 2, start_x, panel_w, h_max - 4)
 
             stdscr.addstr(h_max-1, 0, " [ Q to Exit | Graph Panel (Right) ] ", curses.A_REVERSE)
