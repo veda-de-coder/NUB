@@ -401,36 +401,33 @@ def cmd_peek(args):
         print(red(f"{SYM_ERR} Could not read file: {e}")); sys.exit(1)
 
 def cmd_info(args):
-    # Back to a clean, reliable print with the purple gradient for the logo
-    lines = NUB_ASCII.strip("\n").split("\n")
-    for line in lines:
-        # Simple static gradient across the lines
-        print(magenta(line[:15]) + cyan(line[15:30]) + green(line[30:]))
+    # Plain, no-color output as requested
+    print(NUB_ASCII)
 
     print(f"  {bold('NUB Version Vault')} — Beta Prototype")
-    print(dim("  " + "=" * 45))
+    print("  " + "=" * 45)
     
     try:
         root = find_vcs_root()
         vd = vcs_dir(root)
-        print(f"  Project Root : {cyan(str(root))}")
+        print(f"  Project Root : {root}")
         try:
             name, email, key = get_identity(vd)
-            print(f"  Current User : {bold(name)} <{email}>")
-            print(f"  User Hash Key: {magenta(key)}")
+            print(f"  Current User : {name} <{email}>")
+            print(f"  User Hash Key: {key}")
         except RuntimeError:
-            print(f"  Current User : {yellow('(not authenticated)')}")
+            print(f"  Current User : (not authenticated)")
     except RuntimeError:
-        print(f"  System Status: {yellow('Standing outside a repository')}")
+        print(f"  System Status: Standing outside a repository")
     
     print(f"\n  {bold('Source & Support:')}")
     print(f"  NUB is open source. You can inspect the logic directly:")
-    print(f"  - On GitHub: {cyan('https://github.com/veda-de-coder/NUB')}")
-    print(f"  - Locally  : Use {bold('nub peek <file>')} (e.g., {dim('nub/cli.py')})")
+    print(f"  - On GitHub: https://github.com/veda-de-coder/NUB")
+    print(f"  - Locally  : Use nub peek <file> (e.g., nub/cli.py)")
     
     print(f"\n  {bold('Feedback & Issues:')}")
     print(f"  Have suggestions or found a bug? Reach out at:")
-    print(f"  {bold(cyan('vedanarasimhan08@gmail.com'))}")
+    print(f"  vedanarasimhan08@gmail.com")
     print()
 
 def cmd_fork(args):
