@@ -378,18 +378,53 @@ def cmd_universe(args):
     print()
 
 def cmd_peek(args):
-    root = _require_root()
-    target = Path(args.file)
+    # Don't strictly require a root to peek at files (for transparency)
+    try:
+        root = find_vcs_root()
+        target = root / args.file
+    except RuntimeError:
+        target = Path(args.file)
+        
     if not target.exists():
-        print(red(f"✗ File not found: {args.file}")); sys.exit(1)
+        print(red(f"{SYM_ERR} File not found: {args.file}")); sys.exit(1)
     
-    content = target.read_text().splitlines()
-    _draw_frame(f"PEEK: {args.file}", content, blue)
+    if target.is_dir():
+        print(yellow(f"{SYM_WARN} '{args.file}' is a directory. Listing contents:"))
+        for item in sorted(target.iterdir()):
+            print(f"  {'/' if item.is_dir() else ' '} {item.name}")
+        return
+
+    try:
+        content = target.read_text().splitlines()
+        _draw_frame(f"PEEK: {args.file}", content, blue)
+    except Exception as e:
+        print(red(f"{SYM_ERR} Could not read file: {e}")); sys.exit(1)
 
 def cmd_info(args):
-    print(magenta(NUB_ASCII))
+    import curses
+    import time
+
+    def _animate(stdscr):
+        curses.start_color()
+        curses.init_pair(1, curses.COLOR_MAGENTA, curses.COLOR_BLACK)
+        curses.curs_set(0)
+        stdscr.clear()
+        lines = NUB_ASCII.strip("\n").split("\n")
+        
+        for r, line in enumerate(lines):
+            for c, char in enumerate(line):
+                stdscr.addch(r, c, char, curses.color_pair(1))
+                stdscr.refresh()
+                time.sleep(0.005)
+        time.sleep(0.8)
+
+    try:
+        curses.wrapper(_animate)
+    except:
+        print(magenta(NUB_ASCII))
+
     print(f"  {bold('NUB Version Vault')} — Beta Prototype")
-    print(dim("  " + "═" * 40))
+    print(dim("  " + "=" * 40))
     
     try:
         root = find_vcs_root()
@@ -404,10 +439,20 @@ def cmd_info(args):
     except RuntimeError:
         print(f"  System Status: {yellow('Standing outside a repository')}")
     
-    print(f"\n  {bold('Trust & Transparency:')}")
-    print(f"  NUB is open for inspection. You can read its logic at any time.")
-    print(f"  - Run {cyan('nub peek nub/cli.py')} to see how commands work.")
-    print(f"  - Run {cyan('nub peek run_tests.py')} to see the verification suite.")
+    print(f"\n  {bold('Trust & Transparency — Core Logic:')}")
+    core_files = [
+        "nub/cli.py", "nub/commit.py", "nub/config.py", "nub/init.py",
+        "nub/objects.py", "nub/refs.py", "nub/rollback.py", "nub/tree.py",
+        "nub/utils.py", "nub/graph.py", "run_tests.py"
+    ]
+    
+    # Multi-column print for core files
+    for i in range(0, len(core_files), 2):
+        pair = core_files[i:i+2]
+        line = "    ".join(f"{dim('->')} {cyan(f:<15)}" for f in pair)
+        print(f"  {line}")
+
+    print(f"\n  {dim('Use')} {bold('nub peek <file>')} {dim('to verify any of the above.')}")
     print()
 
 def cmd_fork(args):
