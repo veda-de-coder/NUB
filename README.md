@@ -1,31 +1,61 @@
-# NUB — Hard-Disk Version Control
+# NUB — The Personal Version Vault
 
-No internet. No GitHub. No server required.
+NUB is a lightweight, local-first version control system designed for simplicity and speed. It keeps your project history safe without the complexity of traditional tools.
 
-## Vocabulary
-- **start** (init)
-- **snap** (commit)
-- **past** (log)
-- **now** (status)
-- **flow** (branch)
-- **back** (rollback)
+## Why NUB?
+- **Zero Config:** Get started with `nub start` in seconds.
+- **Local-First:** All snapshots ("snaps") are stored on your machine in the hidden `.vcs` folder.
+- **Clean Concepts:** No staging area (index) — if it's in the folder, it's in the snap (unless blinded).
+- **Time Travel:** Move back and forth in time using "flows" and "back" commands.
 
-## Commands
-    nub start                                 # start new repo
-    nub config --name "Name" --email e@x.com  # set identity
-    nub snap -m "message"                     # take a snapshot
-    nub past                                  # look at project history
-    nub now                                   # current flow and status
-    nub show [hash]                           # inspect a snapshot
-    nub flow list                             # list all flows
-    nub flow create <name>                    # start a new flow
-    nub flow switch <name>                    # switch flows
-    nub flow delete <name>                    # delete a flow
-    nub back --steps N                        # go back N snaps
-    nub back --hash HASH                      # jump to any snap
+## Getting Started
 
-## Multi-user rules
-1. Each person runs `nub config` once on first use.
-2. Coordinate before snapping to the same flow.
-3. Use flows — keep main clean.
-4. .vcs/objects is append-only. History is never deleted.
+1. **Initialize a Repo:**
+   ```bash
+   nub start
+   ```
+
+2. **Set Your Identity:**
+   ```bash
+   nub auth --name "Your Name" --email you@example.com
+   ```
+
+3. **Take a Snapshot:**
+   ```bash
+   nub snap -m "Initial commit"
+   ```
+
+4. **View History:**
+   ```bash
+   nub past
+   ```
+
+## Vocabulary & Commands
+
+| NUB Command | Description | Source File |
+|-------------|-------------|-------------|
+| `start`     | Initialize a new vault | `init.py` |
+| `auth`      | Sign in with your name/email | `config.py` |
+| `snap`      | Take a permanent snapshot | `commit.py` |
+| `past`      | View timeline of snaps | `commit.py` |
+| `now`       | Check current flow and status | `refs.py` |
+| `flow`      | Manage work branches | `refs.py` |
+| `back`      | Revert to a previous state | `rollback.py` |
+| `map`       | See project structure | `tree.py` |
+| `blind`     | Ignore files/folders | `tree.py` |
+| `sight`     | Reveal ignored files | `tree.py` |
+| `shift`     | Compare past vs now | `cli.py` |
+| `peek`      | Quickly read a file | `cli.py` |
+| `universe`  | List all NUB repos on this PC | `utils.py` |
+
+## Safety Rules
+1. **Append-Only:** History is never deleted. Even when you go "back," the old snaps remain in the vault.
+2. **Surgical Rollback:** `nub back` only touches tracked files. Your untracked work stays safe.
+3. **Identity Signatures:** Every snap is signed with your name, email, and a unique Hash Key.
+
+## Running Tests
+To ensure everything is working correctly:
+```bash
+python run_tests.py
+python integration_test.py
+```
