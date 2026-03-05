@@ -553,18 +553,31 @@ _HELP_TABLE = f"""
 
 class CustomParser(argparse.ArgumentParser):
     def error(self, message):
-        print(f"Error: {message}\n")
+        # If they typed 'nub help', just show the help and exit cleanly
+        if "invalid choice: 'help'" in message:
+            self.print_help()
+            sys.exit(0)
+        
+        print(red(f"Error: {message}\n"))
         self.print_help()
         sys.exit(2)
 
     def print_help(self, file=None):
-        print(_HELP_TABLE)
+        # If we are the top-level 'nub' parser, show the Vocabulary Guide.
+        # Otherwise (subcommands), show the standard argparse help.
+        if self.prog == "nub":
+            print(_HELP_TABLE)
+        else:
+            super().print_help(file)
 
 # ── parser ────────────────────────────────────────────────────────────────────
 def build_parser():
-    p = CustomParser(prog="nub", add_help=False)
-    p.add_argument("-h", "--help", action="store_true")
+    # Use 'add_help=True' for the main parser now, but we control display in print_help
+    p = CustomParser(prog="nub", add_help=True)
     sub = p.add_subparsers(dest="command", metavar="<command>")
+
+    # Add 'help' as an explicit command
+    sub.add_parser("help", help="Show this help guide")
 
     p_start = sub.add_parser("start",     help="Start a new repository")
     p_start.add_argument("path", nargs="?", help="Directory to start (default: cwd)")
@@ -632,10 +645,16 @@ COMMANDS = {
 def main():
     parser = build_parser()
     args   = parser.parse_args()
-    if args.help:
-        parser.print_help(); sys.exit(0)
+    
+    # Check for 'help' command
+    if args.command == "help":
+        parser.print_help()
+        sys.exit(0)
+        
     if not args.command:
-        parser.print_help(); sys.exit(0)
+        parser.print_help()
+        sys.exit(0)
+    
     handler = COMMANDS.get(args.command)
     if not handler:
         print(red(SYM_ERR), f"Unknown command: '{args.command}'")
