@@ -24,6 +24,20 @@ To install NUB and make the `nub` command available globally:
    ```
    *Note: On Windows, this will automatically install `windows-curses` for the interactive graph.*
 
+## Deployment & Updates
+
+To update NUB to the latest version or a specific release:
+
+1. **Pull the latest changes:**
+   ```bash
+   git pull origin master
+   ```
+
+2. **Re-install:**
+   ```bash
+   pip install . --upgrade
+   ```
+
 ## Getting Started
 
 1. **Initialize a Repo:**
