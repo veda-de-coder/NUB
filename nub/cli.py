@@ -22,7 +22,20 @@ from nub.refs     import (current_branch, resolve_head, write_ref,
                           branch_exists, set_head_branch, read_ref)
 from nub.rollback import (rollback_by_steps, rollback_to_hash,
                           _resolve_partial_hash)
-from nub.utils    import short_hash, get_all_worlds
+from nub.utils    import short_hash, get_all_worlds, register_world
+from nub.graph    import generate_graph
+
+# ── NUB ASCII ART ─────────────────────────────────────────────────────────────
+NUB_ASCII = r"""
+ ██████   █████ █████  █████ ███████████ 
+▒▒██████ ▒▒███ ▒▒███  ▒▒███ ▒▒███▒▒▒▒▒███
+ ▒███▒███ ▒███  ▒███   ▒███  ▒███    ▒███
+ ▒███▒▒███▒███  ▒███   ▒███  ▒██████████ 
+ ▒███ ▒▒██████  ▒███   ▒███  ▒███▒▒▒▒▒███
+ ▒███  ▒▒█████  ▒███   ▒███  ▒███    ▒███
+ █████  ▒▒█████ ▒▒████████   ███████████ 
+▒▒▒▒▒    ▒▒▒▒▒   ▒▒▒▒▒▒▒▒   ▒▒▒▒▒▒▒▒▒▒▒
+"""
 
 # ── colour helpers ────────────────────────────────────────────────────────────
 _USE_COLOR = sys.stdout.isatty()
@@ -373,6 +386,75 @@ def cmd_peek(args):
     content = target.read_text().splitlines()
     _draw_frame(f"PEEK: {args.file}", content, blue)
 
+def cmd_info(args):
+    print(magenta(NUB_ASCII))
+    print(f"  {bold('NUB Version Vault')} — Beta Prototype")
+    print(dim("  " + "═" * 40))
+    
+    try:
+        root = find_vcs_root()
+        vd = vcs_dir(root)
+        print(f"  Project Root : {cyan(str(root))}")
+        try:
+            name, email, key = get_identity(vd)
+            print(f"  Current User : {bold(name)} <{email}>")
+            print(f"  User Hash Key: {magenta(key)}")
+        except RuntimeError:
+            print(f"  Current User : {yellow('(not authenticated)')}")
+    except RuntimeError:
+        print(f"  System Status: {yellow('Standing outside a repository')}")
+    
+    print(f"\n  {bold('Trust & Transparency:')}")
+    print(f"  NUB is open for inspection. You can read its logic at any time.")
+    print(f"  - Run {cyan('nub peek nub/cli.py')} to see how commands work.")
+    print(f"  - Run {cyan('nub peek run_tests.py')} to see the verification suite.")
+    print()
+
+def cmd_fork(args):
+    import shutil
+    root = _require_root()
+    target_path = Path(args.target).resolve()
+    
+    if target_path.exists():
+        print(red(SYM_ERR), f"Destination already exists: {target_path}"); sys.exit(1)
+    
+    print(dim(f"  Forking {root.name} to {target_path.name}..."))
+    try:
+        shutil.copytree(root, target_path)
+        register_world(target_path)
+        print(green(SYM_OK), f"Forked successfully to: {bold(target_path)}")
+        print(dim("  The new directory is now a fully independent NUB repository."))
+    except Exception as e:
+        print(red(SYM_ERR), f"Fork failed: {e}"); sys.exit(1)
+
+def cmd_graph(args):
+    import curses
+    root = _require_root()
+    vd, od = vcs_dir(root), objects_dir(root)
+    
+    graph_data = generate_graph(vd, od)
+    
+    def _tui(stdscr):
+        curses.curs_set(0)
+        stdscr.nodelay(False)
+        stdscr.clear()
+        
+        max_y, max_x = stdscr.getmaxyx()
+        
+        for i, line in enumerate(graph_data[:max_y-2]):
+            stdscr.addstr(i, 2, line[:max_x-4])
+        
+        stdscr.addstr(max_y-1, 0, " [ Press any key to exit graph ] ", curses.A_REVERSE)
+        stdscr.refresh()
+        stdscr.getch()
+
+    try:
+        curses.wrapper(_tui)
+    except Exception as e:
+        # Fallback if curses fails
+        from nub.graph import print_ascii_graph
+        print_ascii_graph(vd, od)
+
 def cmd_shift(args):
     root = _require_root()
     vd, od = vcs_dir(root), objects_dir(root)
@@ -432,10 +514,13 @@ _HELP_TABLE = f"""
   show         | {dim("commit.py")}   | Inspect the contents of a specific snap.
   now          | {dim("refs.py")}     | Check your current flow and latest snap.
   shift        | {dim("cli.py")}      | See what changed since the last snap.
+  info         | {dim("cli.py")}      | Show NUB identity, status, and ASCII art.
 
   {bold("Time Travel & Flows")}
   flow         | {dim("refs.py")}     | Create, switch, or delete work branches.
   back         | {dim("rollback.py")} | Revert your project to a previous state.
+  graph        | {dim("graph.py")}    | View visual node-based history.
+  fork         | {dim("cli.py")}      | Clone this project to a new location.
 
   {bold("Exploration & Visibility")}
   map          | {dim("tree.py")}     | See the structure of your project.
@@ -481,6 +566,11 @@ def build_parser():
     sub.add_parser("place",          help="Show current directory")
     sub.add_parser("map",            help="Show project file layout")
     sub.add_parser("universe",       help="Show all known repositories")
+    sub.add_parser("info",           help="Display NUB info and system status")
+    sub.add_parser("graph",          help="Show visual commit graph")
+
+    pf = sub.add_parser("fork",      help="Fork this repository to a new path")
+    pf.add_argument("target", help="Destination path for the fork")
 
     pb = sub.add_parser("blind",      help="Ignore files")
     pb.add_argument("--add",   help="Add a file/folder to the blind list")
@@ -516,6 +606,7 @@ COMMANDS = {
     "show": cmd_show, "flow": cmd_flow, "back": cmd_back,
     "place": cmd_place, "map": cmd_map, "blind": cmd_blind, "sight": cmd_sight,
     "universe": cmd_universe, "peek": cmd_peek, "shift": cmd_shift,
+    "info": cmd_info, "fork": cmd_fork, "graph": cmd_graph,
 }
 
 def main():
