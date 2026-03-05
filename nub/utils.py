@@ -47,3 +47,12 @@ def get_all_worlds() -> list:
         return json.loads(universe_path.read_text())
     except:
         return []
+
+def clean_universe() -> int:
+    """Remove paths that no longer exist on disk. Returns count of removed paths."""
+    worlds = get_all_worlds()
+    existing = [w for l in worlds if (w := Path(l)) and w.exists()]
+    removed = len(worlds) - len(existing)
+    if removed > 0:
+        get_universe_path().write_text(json.dumps([str(p) for p in existing], indent=2))
+    return removed

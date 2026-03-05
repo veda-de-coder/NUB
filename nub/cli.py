@@ -21,7 +21,7 @@ from nub.refs     import (current_branch, resolve_head, write_ref,
                           branch_exists, set_head_branch, read_ref)
 from nub.rollback import (rollback_by_steps, rollback_to_hash,
                           _resolve_partial_hash)
-from nub.utils    import short_hash, get_all_worlds, register_world
+from nub.utils    import short_hash, get_all_worlds, register_world, clean_universe
 from nub.info     import print_info
 from nub.peek     import run_peek
 from nub.graph    import show_tui_graph
@@ -350,6 +350,11 @@ def cmd_sight(args):
     print(green(SYM_OK), f"NUB has regained sight of: {bold(args.target)}")
 
 def cmd_universe(args):
+    if args.clean:
+        removed = clean_universe()
+        print(green(SYM_OK), f"Cleaned the universe. Removed {bold(str(removed))} dead path(s).")
+        return
+
     worlds = get_all_worlds()
     if not worlds:
         print(yellow("  The NUB Universe is empty. Start your first project with 'nub start'!"))
@@ -373,6 +378,19 @@ def cmd_universe(args):
         except:
             print(f"{path_str:<45} | {yellow('(no auth)')}")
     print()
+
+def cmd_jump(args):
+    worlds = get_all_worlds()
+    matches = [w for w in worlds if args.query.lower() in w.lower()]
+    
+    if not matches:
+        print(red(SYM_ERR), f"No vault found matching '{args.query}' in the universe."); sys.exit(1)
+    
+    print(bold(f"\nFound {len(matches)} matching vault(s):"))
+    print(dim("=" * 60))
+    for m in matches:
+        print(f"{green(SYM_GO)} {cyan(m)}")
+        print(f"   Command: {bold(f'cd \"{m}\"')}\n")
 
 def cmd_peek(args):
     run_peek(args, SYM_ERR, SYM_WARN, red, yellow, blue, _draw_frame)
@@ -457,6 +475,7 @@ _HELP_TABLE = f"""
   auth         | {yellow("git config")}          | {dim("config.py")}   | Set your name & email.
   unauth       | {yellow("(logout)")}            | {dim("config.py")}   | Clear local identity.
   universe     | {yellow("(registry)")}          | {dim("utils.py")}    | List all NUB projects.
+  jump         | {yellow("(teleport)")}          | {dim("utils.py")}    | Find and go to a vault.
 
   {bold("Snapshots & History")}
   snap         | {yellow("git commit -am")}      | {dim("commit.py")}   | Save everything now.
@@ -557,10 +576,17 @@ def build_parser():
         epilog="Example: nub map",
         help="Show project file layout")
     
-    sub.add_parser("universe", 
-        description="List every NUB repository known to this machine. It scans the global registry to show the paths, active users, and hash keys of all your projects. This is the 'Captain's Log' for all your NUB-managed work.",
-        epilog="Example: nub universe",
+    p_uni = sub.add_parser("universe", 
+        description="List every NUB repository known to this machine. It scans the global registry to show the paths, active users, and hash keys of all your projects. Use --clean to remove entries that no longer exist on disk.",
+        epilog="Example: nub universe --clean",
         help="Show all known repositories")
+    p_uni.add_argument("--clean", action="store_true", help="Purge dead paths from the registry")
+
+    p_jmp = sub.add_parser("jump", 
+        description="Search for a known vault in your NUB Universe and provide the command to teleport (cd) there. This is the fastest way to move between different projects managed by NUB.",
+        epilog="Example: nub jump my_web_app",
+        help="Teleport to a known repository")
+    p_jmp.add_argument("query", help="Project name or partial path to search for")
 
     sub.add_parser("info", 
         description="Display detailed information about the NUB system and the current repository. This includes the NUB ASCII logo, support contact info, and links to the source code for full transparency. It is the best place to start for new users.",
@@ -634,6 +660,7 @@ COMMANDS = {
     "place": cmd_place, "map": cmd_map, "blind": cmd_blind, "sight": cmd_sight,
     "universe": cmd_universe, "peek": cmd_peek, "shift": cmd_shift,
     "info": cmd_info, "fork": cmd_fork, "graph": cmd_graph,
+    "jump": cmd_jump,
 }
 
 def main():
