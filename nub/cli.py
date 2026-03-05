@@ -401,63 +401,14 @@ def cmd_peek(args):
         print(red(f"{SYM_ERR} Could not read file: {e}")); sys.exit(1)
 
 def cmd_info(args):
-    import curses
-    import time
-
-    def _animate(stdscr):
-        if not curses.has_colors():
-            stdscr.addstr(0, 0, NUB_ASCII)
-            stdscr.refresh()
-            time.sleep(1)
-            return
-
-        curses.start_color()
-        curses.use_default_colors()
-        
-        # Setup gradient pairs: Purple -> Blue -> Cyan -> Green
-        curses.init_pair(1, curses.COLOR_MAGENTA, -1)
-        curses.init_pair(2, curses.COLOR_BLUE, -1)
-        curses.init_pair(3, curses.COLOR_CYAN, -1)
-        curses.init_pair(4, curses.COLOR_GREEN, -1)
-        
-        curses.curs_set(0)
-        stdscr.clear()
-        
-        lines = NUB_ASCII.strip("\n").split("\n")
-        if not lines: return
-        max_w = max(len(l) for l in lines)
-        
-        # Animate column by column for a "wipe" effect with gradient
-        for c in range(max_w):
-            # Determine color for this column
-            ratio = c / max_w
-            if ratio < 0.25:   cp = 1 # Magenta
-            elif ratio < 0.50: cp = 2 # Blue
-            elif ratio < 0.75: cp = 3 # Cyan
-            else:              cp = 4 # Green
-            
-            for r, line in enumerate(lines):
-                if c < len(line):
-                    stdscr.addch(r, c, line[c], curses.color_pair(cp) | curses.A_BOLD)
-            
-            stdscr.refresh()
-            time.sleep(0.015)
-            
-        # Subtle "glimmer" effect after drawing
-        for _ in range(3):
-            time.sleep(0.1)
-            # We could shift colors here if we wanted more animation
-            
-        time.sleep(0.5)
-
-    try:
-        curses.wrapper(_animate)
-    except:
-        # Fallback for terminals without curses support
-        print(magenta(NUB_ASCII))
+    # Back to a clean, reliable print with the purple gradient for the logo
+    lines = NUB_ASCII.strip("\n").split("\n")
+    for line in lines:
+        # Simple static gradient across the lines
+        print(magenta(line[:15]) + cyan(line[15:30]) + green(line[30:]))
 
     print(f"  {bold('NUB Version Vault')} — Beta Prototype")
-    print(dim("  " + "=" * 40))
+    print(dim("  " + "=" * 45))
     
     try:
         root = find_vcs_root()
@@ -472,20 +423,14 @@ def cmd_info(args):
     except RuntimeError:
         print(f"  System Status: {yellow('Standing outside a repository')}")
     
-    print(f"\n  {bold('Trust & Transparency — Core Logic:')}")
-    core_files = [
-        "nub/cli.py", "nub/commit.py", "nub/config.py", "nub/init.py",
-        "nub/objects.py", "nub/refs.py", "nub/rollback.py", "nub/tree.py",
-        "nub/utils.py", "nub/graph.py", "run_tests.py"
-    ]
+    print(f"\n  {bold('Source & Support:')}")
+    print(f"  NUB is open source. You can inspect the logic directly:")
+    print(f"  - On GitHub: {cyan('https://github.com/veda-de-coder/NUB')}")
+    print(f"  - Locally  : Use {bold('nub peek <file>')} (e.g., {dim('nub/cli.py')})")
     
-    # Multi-column print for core files
-    for i in range(0, len(core_files), 2):
-        pair = core_files[i:i+2]
-        line = "    ".join(f"{dim('->')} {cyan(f.ljust(15))}" for f in pair)
-        print(f"  {line}")
-
-    print(f"\n  {dim('Use')} {bold('nub peek <file>')} {dim('to verify any of the above.')}")
+    print(f"\n  {bold('Feedback & Issues:')}")
+    print(f"  Have suggestions or found a bug? Reach out at:")
+    print(f"  {bold(cyan('vedanarasimhan08@gmail.com'))}")
     print()
 
 def cmd_fork(args):
