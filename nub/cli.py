@@ -23,7 +23,7 @@ from nub.refs     import (current_branch, resolve_head, write_ref,
 from nub.rollback import (rollback_by_steps, rollback_to_hash,
                           _resolve_partial_hash)
 from nub.utils    import short_hash, get_all_worlds, register_world
-from nub.graph    import get_graph_nodes, draw_side_panel
+from nub.graph    import get_graph_nodes, draw_side_panel, print_ascii_graph
 
 # ── NUB ASCII ART ─────────────────────────────────────────────────────────────
 NUB_ASCII = r"""
@@ -458,6 +458,10 @@ def cmd_graph(args):
     def _tui(stdscr):
         curses.curs_set(0)
         curses.start_color()
+        try:
+            curses.use_default_colors()
+        except:
+            pass
         curses.init_pair(1, curses.COLOR_CYAN, -1)
         curses.init_pair(2, curses.COLOR_MAGENTA, -1)
         
@@ -492,7 +496,6 @@ def cmd_graph(args):
     try:
         curses.wrapper(_tui)
     except Exception as e:
-        from .graph import print_ascii_graph
         print_ascii_graph(vd, od)
 
 def cmd_shift(args):
